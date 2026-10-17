@@ -1100,7 +1100,9 @@
 
       if(PPY >= 2.4){
         /* 竖牌：像桃符，名竖排，号在旁，底下刻享年 */
-        var tw2 = 44, th = 108;
+        var age = p.d - p.b;
+        var th = Math.max(50 + age, 40 + p.n.length * 17);   /* 牌高随寿命，但保证名字能放下 */
+        var tw2 = 44;
         var bx = tipx - tw2 / 2;
 
         var tag = svgEl("g", {"class":"sway"});
@@ -1264,6 +1266,9 @@
     clamp();
     glideRaf = requestAnimationFrame(glide);
   }
+  /* 双指缩放 */
+  var pinchD0 = 0, pinchP = 0, pinchCenter = 0, pinchYear = 0;
+
   viewport.addEventListener("touchstart", function(e){
     hintEl.style.opacity = 0;
     stopGlide();
@@ -1271,6 +1276,14 @@
     if(e.touches.length === 1){
       tY0 = e.touches[0].clientY; tS0 = scroll;
       lastY = tY0; lastT = Date.now(); vel = 0;
+    } else if(e.touches.length === 2){
+      var dx = e.touches[0].clientX - e.touches[1].clientX;
+      var dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchD0 = Math.sqrt(dx*dx + dy*dy);
+      pinchP = PPY;
+      var rect = viewport.getBoundingClientRect();
+      pinchCenter = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+      pinchYear = Y0 + (scroll + pinchCenter - PAD_T) / PPY;
     }
   }, {passive:true});
   viewport.addEventListener("touchmove", function(e){
@@ -1281,6 +1294,18 @@
       if(dt > 0){ vel = (lastY - y) / dt * 16; }   /* 像素/帧 */
       lastY = y; lastT = now;
       clamp();
+      e.preventDefault();
+    } else if(e.touches.length === 2){
+      var dx = e.touches[0].clientX - e.touches[1].clientX;
+      var dy = e.touches[0].clientY - e.touches[1].clientY;
+      var d = Math.sqrt(dx*dx + dy*dy);
+      var newPPY = Math.max(MINP, Math.min(MAXP, pinchP * (d / pinchD0)));
+      if(Math.abs(newPPY - PPY) > 0.05){
+        PPY = newPPY;
+        build();
+        scroll = (pinchYear - Y0) * PPY + PAD_T - pinchCenter;
+        clamp();
+      }
       e.preventDefault();
     }
   }, {passive:false});
@@ -1305,7 +1330,7 @@
 
   /* 阅读 */
   var SPEED = 52, POEM_SPEED = 150;
-  var mode = "scroll", timer = null, typingEl = null, typingStr = "", cur = null, pi = 0;
+  var mode = "scroll", timer = null, typingEl = null, typingStr = "", typingCb = null, cur = null, pi = 0;
   var readerEl = document.getElementById("reader");
   var headEl = document.getElementById("r-head");
   var textEl = document.getElementById("text");
@@ -1317,16 +1342,26 @@
 
   function showHint(on){ hintEl2.classList.toggle("on", !!on); }
   function typeInto(el, str, sp, cb){
-    typingEl = el; typingStr = str;
+    typingEl = el; typingStr = str; typingCb = cb;
     var n = 0; el.textContent = "";
     timer = setInterval(function(){
       n++; el.textContent = str.slice(0, n);
-      if(n >= str.length){ clearInterval(timer); timer = null; typingEl = null; typingStr = ""; if(cb) cb(); }
+      if(n >= str.length){
+        clearInterval(timer); timer = null;
+        typingEl = null; typingStr = "";
+        var c = typingCb; typingCb = null;
+        if(c) c();
+      }
     }, sp);
   }
   function finishTyping(){
     if(timer){ clearInterval(timer); timer = null; }
-    if(typingEl){ typingEl.textContent = typingStr; typingEl = null; typingStr = ""; }
+    if(typingEl){
+      typingEl.textContent = typingStr;
+      typingEl = null; typingStr = "";
+      var c = typingCb; typingCb = null;
+      if(c) c();
+    }
   }
   var galleryEl = document.getElementById("gallery");
   var galName = document.getElementById("gal-name");
