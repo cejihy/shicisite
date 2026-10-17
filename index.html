@@ -137,7 +137,8 @@
   #reader::after{content:"";position:fixed;inset:0;pointer-events:none;
     background:radial-gradient(130% 100% at 50% 40%, rgba(255,250,235,.55), rgba(0,0,0,0) 62%),
                radial-gradient(140% 120% at 50% 50%, rgba(0,0,0,0) 58%, rgba(84,66,40,.18) 100%)}
-  #sheet{position:relative;z-index:2;height:100%;display:flex;align-items:flex-start;justify-content:center;padding:16vh 8vw 8vh}
+  #sheet{position:relative;z-index:2;height:100%;display:flex;align-items:flex-start;justify-content:center;padding:16vh 8vw 8vh;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none}
+  #sheet::-webkit-scrollbar{display:none}
   #inner{width:min(640px,100%)}
   #r-head{font-size:12px;letter-spacing:.3em;color:#8a7a5e;margin-bottom:28px;text-align:center;opacity:0;transition:opacity .8s ease}
   #r-head.on{opacity:1}
@@ -1061,7 +1062,6 @@
     }
 
     /* 肋 */
-    var lastY = {1: -1e9, "-1": -1e9};
     var tagLayer = svgEl("g", {});
     order.forEach(function(p, i){
       var side = (i % 2 === 0) ? 1 : -1;
@@ -1069,28 +1069,30 @@
       var maxR = Math.min(W * 0.36, 304);
       var rstep = Math.min(38, (maxR - 60) / 3);
       var reach = maxR - ((i * 5) % 4) * rstep;          /* 打乱四档，不成两列 */
-      var tipx = cx + side * reach + ((i % 3) - 1) * 6;  /* 三档微偏，错落不乱 */
-      var tipy = yb - 78;
+      var tipx = cx + side * reach + ((i * 7) % 5 - 2) * 12;  /* 五档微偏，-24 ~ +24 */
       var has = !!p.paras;
 
-      /* 同一侧挤在一起时，把牌往下吊一点，免得叠住（按缩放自适应） */
-      var gap = yb - lastY[side];
-      var shift = gap < 122 ? (122 - gap) : 0;
-      lastY[side] = yb + shift;
-
       var tipy = yb - 78;
-      var by = tipy + shift;   /* 牌顶实际位置（含防重叠下推） */
+      var by = tipy + 20;   /* 牌顶实际位置：吊点下方固定 20px */
 
       var g = svgEl("g", {});
       g.style.cursor = has ? "pointer" : "default";
 
+      /* 肋线：斜向上，从中轴到吊点 */
       g.appendChild(svgEl("path", {
-        d: brush([cx, by], [cx + side * reach * .35, by - 16], [tipx, by],
+        d: brush([cx, yb], [cx + side * reach * .35, yb - 36], [tipx, tipy],
                  has ? 1.8 : 1.2, 20, true),
-        fill: has ? "rgba(38,32,26,.55)" : "rgba(74,64,50,.28)"
+        fill: has ? "rgba(38,32,26,.45)" : "rgba(74,64,50,.22)"
       }));
 
-      g.appendChild(svgEl("circle", {cx: tipx, cy: by, r: has ? 2.6 : 1.8,
+      /* 挂绳：从吊点垂到牌顶 */
+      g.appendChild(svgEl("line", {
+        x1: tipx, y1: tipy, x2: tipx, y2: by,
+        stroke: "rgba(74,64,50,.3)", "stroke-width": .7
+      }));
+
+      /* 吊点 */
+      g.appendChild(svgEl("circle", {cx: tipx, cy: tipy, r: has ? 2.6 : 1.8,
         fill: has ? "rgba(38,32,26,.9)" : "rgba(74,64,50,.5)"}));
 
       var label = p.n + (p.approx ? "?" : "") + (HAO[p.n] ? "　" + HAO[p.n] : "");
@@ -1109,15 +1111,15 @@
         /* 影 */
         tag.appendChild(svgEl("rect", {x: bx + 2, y: by + 3, width: tw2, height: th, rx: 4,
                                        fill: "rgba(60,42,22,.13)"}));
-        /* 牌身：有故事的用玉色，其余用木色 */
+        /* 牌身：有故事的用宣纸色，其余用旧木色 */
         tag.appendChild(svgEl("rect", {x: bx, y: by, width: tw2, height: th, rx: 4,
-                                       fill: has ? "rgba(219,231,216,.97)" : "rgba(219,186,132,.96)",
-                                       stroke: has ? "rgba(46,62,46,.55)" : "rgba(96,70,38,.5)",
+                                       fill: has ? "rgba(243,236,220,.97)" : "rgba(208,192,165,.96)",
+                                       stroke: has ? "rgba(72,60,42,.5)" : "rgba(88,68,42,.45)",
                                        "stroke-width": 1}));
         /* 内框，像刻出来的边 */
         tag.appendChild(svgEl("rect", {x: bx + 4, y: by + 5, width: tw2 - 8, height: th - 10, rx: 2,
                                        fill: "none",
-                                       stroke: has ? "rgba(60,80,60,.35)" : "rgba(110,80,44,.30)",
+                                       stroke: has ? "rgba(90,80,60,.30)" : "rgba(100,78,50,.28)",
                                        "stroke-width": .7}));
         /* 穿孔 */
         tag.appendChild(svgEl("circle", {cx: tipx, cy: by + 9, r: 2.6,
@@ -1161,7 +1163,7 @@
         }
       } else {
         var tx = svgEl("text", {
-          x: tipx + (side > 0 ? 11 : -11), y: tipy + 4 + shift,
+          x: tipx + (side > 0 ? 11 : -11), y: tipy + 4,
           "text-anchor": side > 0 ? "start" : "end",
           fill: has ? "rgba(30,26,20,.95)" : "rgba(74,64,50,.78)",
           "font-size": has ? 15 : 13.5,
@@ -1171,20 +1173,13 @@
         g.appendChild(tx);
 
         var sm = svgEl("text", {
-          x: tipx + (side > 0 ? 11 : -11), y: tipy + 18 + shift,
+          x: tipx + (side > 0 ? 11 : -11), y: tipy + 18,
           "text-anchor": side > 0 ? "start" : "end",
           fill: "rgba(96,82,62,.62)", "font-size": 9.5,
           "font-family":"KaiTi,STKaiti,serif", "letter-spacing":".5"
         });
         sm.textContent = sub;
         g.appendChild(sm);
-
-        if(shift){
-          g.appendChild(svgEl("line", {
-            x1: tipx + side * 4, y1: tipy + 2, x2: tipx + side * 9, y2: tipy + shift,
-            stroke: "rgba(74,64,50,.35)", "stroke-width": .8
-          }));
-        }
       }
 
       if(has){
