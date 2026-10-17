@@ -1267,7 +1267,7 @@
     glideRaf = requestAnimationFrame(glide);
   }
   /* 双指缩放 */
-  var pinchD0 = 0, pinchP = 0, pinchCenter = 0, pinchYear = 0;
+  var pinchD0 = 0, pinchP = 0, pinchCenter = 0, pinchYear = 0, pinchRaf = null;
 
   viewport.addEventListener("touchstart", function(e){
     hintEl.style.opacity = 0;
@@ -1302,9 +1302,14 @@
       var newPPY = Math.max(MINP, Math.min(MAXP, pinchP * (d / pinchD0)));
       if(Math.abs(newPPY - PPY) > 0.05){
         PPY = newPPY;
-        build();
-        scroll = (pinchYear - Y0) * PPY + PAD_T - pinchCenter;
-        clamp();
+        if(!pinchRaf){
+          pinchRaf = requestAnimationFrame(function(){
+            pinchRaf = null;
+            build();
+            scroll = (pinchYear - Y0) * PPY + PAD_T - pinchCenter;
+            clamp();
+          });
+        }
       }
       e.preventDefault();
     }
