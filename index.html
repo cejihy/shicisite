@@ -56,8 +56,11 @@
   svg{display:block}
   .sway{
     animation-name:sway; animation-timing-function:ease-in-out; animation-iteration-count:infinite;
-    transform-box:view-box;
+    transform-box:view-box;will-change:transform;
   }
+  /* 拖着走的时候，牌子先别摆——省给滚动 */
+  body.moving .sway{animation-play-state:paused}
+  body.moving .slip{animation-play-state:paused}
   @keyframes sway{
     0%   {transform:rotate(-1.5deg)}
     50%  {transform:rotate(1.5deg)}
@@ -404,6 +407,7 @@
     W = viewport.clientWidth;
     H = (Y1 - Y0) * PPY;
     world.style.height = H + "px";
+    measure();
 
     var svg = svgEl("svg", {width: W, height: H, viewBox: "0 0 " + W + " " + H});
     var cx = Math.round(W / 2);
@@ -591,19 +595,44 @@
     world.appendChild(svg);
   }
 
-  function maxScroll(){ return Math.max(0, H - viewport.clientHeight); }
+  /* 视口与可滚距离缓存起来，别在每次手指移动时量高度（那会强制重排） */
+  var viewH = 0, maxS = 0, lastRange = "";
+  function measure(){
+    viewH = viewport.clientHeight;
+    maxS = Math.max(0, H - viewH);
+  }
   function apply(){
     world.style.transform = "translateY(" + (-scroll) + "px)";
     var a = Math.round(Y0 + scroll / PPY);
-    var b = Math.round(Y0 + (scroll + viewport.clientHeight) / PPY);
-    rangeEl.textContent = Math.min(a, 1230) + "–" + Math.min(b, 1235);
+    var b = Math.round(Y0 + (scroll + viewH) / PPY);
+    var s = Math.min(a, 1230) + "–" + Math.min(b, 1235);
+    if(s !== lastRange){ rangeEl.textContent = s; lastRange = s; }
   }
-  function clamp(){ scroll = Math.max(0, Math.min(scroll, maxScroll())); apply(); }
+  function clamp(){
+    if(scroll < 0) scroll = 0;
+    else if(scroll > maxS) scroll = maxS;
+    apply();
+  }
+
+  /* 拖动时把摆动停掉，一停下来再让它们接着晃 */
+  var stillTimer = null;
+  function moving(on){
+    if(on){
+      document.body.classList.add("moving");
+      if(stillTimer){ clearTimeout(stillTimer); stillTimer = null; }
+    } else {
+      if(stillTimer) clearTimeout(stillTimer);
+      stillTimer = setTimeout(function(){
+        document.body.classList.remove("moving");
+        stillTimer = null;
+      }, 240);
+    }
+  }
 
   viewport.addEventListener("wheel", function(e){
     e.preventDefault();
     if(e.ctrlKey || e.metaKey){ zoom(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientY); }
-    else { scroll += e.deltaY; clamp(); }
+    else { moving(true); scroll += e.deltaY; clamp(); moving(false); }
     hintEl.style.opacity = 0;
   }, {passive:false});
 
@@ -625,27 +654,51 @@
     if(e.target.closest("g")) return;
     dragging = true; dragY = e.clientY; dragScroll = scroll;
     viewport.classList.add("drag");
+    moving(true);
   });
   window.addEventListener("mousemove", function(e){
     if(!dragging) return;
     scroll = dragScroll - (e.clientY - dragY); clamp();
   });
-  window.addEventListener("mouseup", function(){ dragging = false; viewport.classList.remove("drag"); });
+  window.addEventListener("mouseup", function(){
+    dragging = false; viewport.classList.remove("drag"); moving(false);
+  });
 
-  /* ---- 触屏：单指上下拖，双指捏合缩放 ---- */
-  var tY0 = 0, tS0 = 0, lastD = 0;
+  /* ---- 触屏：单指上下拖（带惯性），双指捏合缩放 ---- */
+  var tY0 = 0, tS0 = 0, lastD = 0, lastY = 0, lastT = 0, vel = 0, glideRaf = null;
   function tdist(t){
     var dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY;
     return Math.sqrt(dx*dx + dy*dy);
   }
+  function stopGlide(){
+    if(glideRaf){ cancelAnimationFrame(glideRaf); glideRaf = null; }
+  }
+  function glide(){
+    glideRaf = null;
+    vel *= 0.95;
+    if(Math.abs(vel) < 0.35){ return; }
+    scroll -= vel;
+    clamp();
+    glideRaf = requestAnimationFrame(glide);
+  }
   viewport.addEventListener("touchstart", function(e){
     hintEl.style.opacity = 0;
-    if(e.touches.length === 1){ tY0 = e.touches[0].clientY; tS0 = scroll; lastD = 0; }
-    else if(e.touches.length === 2){ lastD = tdist(e.touches); }
+    stopGlide();
+    moving(true);
+    if(e.touches.length === 1){
+      tY0 = e.touches[0].clientY; tS0 = scroll; lastD = 0;
+      lastY = tY0; lastT = Date.now(); vel = 0;
+    } else if(e.touches.length === 2){
+      lastD = tdist(e.touches);
+    }
   }, {passive:true});
   viewport.addEventListener("touchmove", function(e){
     if(e.touches.length === 1 && !lastD){
-      scroll = tS0 - (e.touches[0].clientY - tY0);
+      var y = e.touches[0].clientY;
+      scroll = tS0 - (y - tY0);
+      var now = Date.now(), dt = now - lastT;
+      if(dt > 0){ vel = (lastY - y) / dt * 16; }   /* 像素/帧 */
+      lastY = y; lastT = now;
       clamp();
       e.preventDefault();
     } else if(e.touches.length === 2){
@@ -657,7 +710,13 @@
       e.preventDefault();
     }
   }, {passive:false});
-  viewport.addEventListener("touchend", function(){ lastD = 0; }, {passive:true});
+  viewport.addEventListener("touchend", function(e){
+    if(e.touches.length === 0){
+      lastD = 0;
+      moving(false);
+      if(Math.abs(vel) > 1.5){ glideRaf = requestAnimationFrame(glide); }
+    }
+  }, {passive:true});
 
   window.addEventListener("resize", function(){
     var yAt = Y0 + scroll / PPY;
