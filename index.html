@@ -97,22 +97,23 @@
     scrollbar-width:thin;
   }
   .slip{
-    flex:0 0 auto;width:248px;display:flex;flex-direction:column;align-items:center;
+    flex:0 0 auto;width:64px;display:flex;flex-direction:column;align-items:center;
     transform-origin:top center;
     animation:sway 7.2s ease-in-out infinite;
     padding-top:0;cursor:pointer;
   }
   .slip .str{width:1px;height:36px;background:rgba(46,40,32,.5)}
   .slip .sheet2{
-    width:248px;height:158px;background:rgba(250,243,226,.96);
+    width:64px;height:280px;background:rgba(250,243,226,.96);
     border:1px solid rgba(96,70,38,.45);border-radius:2px;
     box-shadow:0 3px 7px rgba(70,50,26,.14);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:8px;padding:14px;
+    writing-mode:vertical-rl;
+    display:flex;flex-direction:column;align-items:flex-start;
+    gap:12px;padding:16px 10px;
   }
-  .slip .t{font-size:19px;letter-spacing:.22em;color:#2e2822}
-  .slip .l{font-size:13px;letter-spacing:.12em;color:#6b5c44}
-  .slip .d{font-size:10px;letter-spacing:.14em;color:#8f7f63}
+  .slip .t{font-size:17px;letter-spacing:.26em;color:#2e2822}
+  .slip .l{font-size:12px;letter-spacing:.18em;color:#6b5c44}
+  .slip .d{font-size:10px;letter-spacing:.12em;color:#8f7f63}
   .slip:hover .sheet2{border-color:rgba(60,44,24,.75);background:rgba(253,247,232,1)}
   .slip.blank{cursor:default;opacity:.45}
   .slip.blank .sheet2{border-style:dashed;background:rgba(246,238,220,.5);box-shadow:none}
@@ -193,6 +194,7 @@
 <script>
 (function(){
   var Y0 = 690, Y1 = 1235;
+  var PAD_T = 90;   /* 天头留白：最上头的牌子别压在“看见”那条底下 */
   var SVGNS = "http://www.w3.org/2000/svg";
   var FOLK = [
     {n:"孟浩然", b:689, d:740},
@@ -390,7 +392,7 @@
 
   function build(){
     W = viewport.clientWidth;
-    H = (Y1 - Y0) * PPY;
+    H = PAD_T + (Y1 - Y0) * PPY;
     world.style.height = H + "px";
     measure();
 
@@ -401,7 +403,7 @@
     var pts = [], wig = [];
     for(var i = 0; i <= 60; i++){
       var t = i / 60;
-      var y = t * H;
+      var y = PAD_T + t * (H - PAD_T);
       var x = cx + Math.sin(t * 7.1) * 1.6 + Math.sin(t * 23.3) * .7;
       pts.push([x, y]);
     }
@@ -415,7 +417,7 @@
     /* 年齿 */
     var step = PPY >= 7 ? 5 : (PPY >= 3 ? 10 : 25);
     for(var y = 700; y <= 1230; y += step){
-      var yy = (y - Y0) * PPY;
+      var yy = PAD_T + (y - Y0) * PPY;
       var big = (y % 100 === 0), mid = (y % 50 === 0);
       var len = big ? 13 : (mid ? 8 : 4);
       svg.appendChild(svgEl("line", {
@@ -437,8 +439,10 @@
     var tagLayer = svgEl("g", {});
     order.forEach(function(p, i){
       var side = (i % 2 === 0) ? 1 : -1;
-      var yb = (p.b - Y0) * PPY, yd = (p.d - Y0) * PPY;
-      var reach = Math.min(W * 0.36, 190 + (i % 4) * 38);
+      var yb = PAD_T + (p.b - Y0) * PPY, yd = PAD_T + (p.d - Y0) * PPY;
+      var maxR = Math.min(W * 0.36, 304);
+      var rstep = Math.min(38, (maxR - 60) / 3);   /* 窄屏也错落，步子按比例收 */
+      var reach = maxR - (i % 4) * rstep;
       var tipx = cx + side * reach;
       var tipy = yb - 78;
       var has = !!p.paras;
@@ -588,8 +592,8 @@
   }
   function apply(){
     world.style.transform = "translateY(" + (-scroll) + "px)";
-    var a = Math.round(Y0 + scroll / PPY);
-    var b = Math.round(Y0 + (scroll + viewH) / PPY);
+    var a = Math.max(Y0, Math.round(Y0 + (scroll - PAD_T) / PPY));
+    var b = Math.round(Y0 + (scroll + viewH - PAD_T) / PPY);
     var s = Math.min(a, 1230) + "–" + Math.min(b, 1235);
     if(s !== lastRange){ rangeEl.textContent = s; lastRange = s; }
   }
@@ -644,7 +648,7 @@
     glideRaf = null;
     vel *= 0.95;
     if(Math.abs(vel) < 0.35){ return; }
-    scroll -= vel;
+    scroll += vel;
     clamp();
     glideRaf = requestAnimationFrame(glide);
   }
@@ -676,14 +680,14 @@
   }, {passive:true});
 
   window.addEventListener("resize", function(){
-    var yAt = Y0 + scroll / PPY;
+    var yAt = Y0 + (scroll - PAD_T) / PPY;
     build();
-    scroll = (yAt - Y0) * PPY;
+    scroll = (yAt - Y0) * PPY + PAD_T;
     clamp();
   });
 
   build();
-  scroll = (1082 - Y0) * PPY - viewport.clientHeight / 2;
+  scroll = PAD_T + (1082 - Y0) * PPY - viewport.clientHeight / 2;
   clamp();
   setTimeout(function(){ hintEl.style.opacity = 0; }, 9000);
 
@@ -717,6 +721,8 @@
   var slipsEl = document.getElementById("slips");
   var curPerson = null;
 
+  function cnNum(s){ return s.replace(/\d/g, function(d){ return "〇一二三四五六七八九"[d]; }); }
+
   function openGallery(p){
     curPerson = p;
     galName.textContent = p.n + (HAO[p.n] ? "　" + HAO[p.n] : "") + "　" + p.b + "–" + p.d;
@@ -731,7 +737,7 @@
       d.innerHTML = '<div class="str"></div><div class="sheet2">' +
         '<div class="t">' + (w.t || "无题") + '</div>' +
         '<div class="l">' + line + '</div>' +
-        '<div class="d">' + (w.year || "") + '</div></div>';
+        '<div class="d">' + cnNum(w.year || "") + '</div></div>';
       d.addEventListener("click", function(e){ e.stopPropagation(); openWork(w); });
       slipsEl.appendChild(d);
     });
