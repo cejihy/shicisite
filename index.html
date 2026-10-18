@@ -712,6 +712,7 @@
   }
 
   function openWork(w){
+    finishTyping();   /* 若正打着上一首，先停干净 */
     cur = w; pi = 0; poemFull = false;
     pmTab.textContent = "读原文";
     readerEl.classList.add("on");
@@ -738,21 +739,27 @@
     requestAnimationFrame(function(){ el.classList.add("on"); });
     showHint(true);
   }
-  /* 原文视图：不打字，全诗与注一次铺出 */
+  /* 原文视图：不打字机逐字，但逐行打印式出现 */
   function showPoemFull(){
     finishTyping();
     poemFull = true; mode = "poemfull";
     textEl.innerHTML = ""; poemEl.innerHTML = "";
     poemEl.classList.add("on"); showHint(false);
     pmTab.textContent = "读场景";
-    cur.poem.forEach(function(line){
-      var el = document.createElement("p");
-      el.className = "line";
-      el.textContent = line;
-      poemEl.appendChild(el);
+    setTimeout(function(){ poemFullLine(0); }, 420);
+  }
+  function poemFullLine(k){
+    if(k >= cur.poem.length){
+      noteEl.innerHTML = (curPerson ? curPerson.n : "") + "　" + cur.note;
+      tailEl.classList.add("on");
+      mode = "done"; showHint(false); return;
+    }
+    var el = document.createElement("p");
+    el.className = "line";
+    poemEl.appendChild(el);
+    typeInto(el, cur.poem[k], POEM_SPEED, function(){
+      setTimeout(function(){ if(mode === "poemfull") poemFullLine(k + 1); }, 660);
     });
-    noteEl.innerHTML = (curPerson ? curPerson.n : "") + "　" + cur.note;
-    tailEl.classList.add("on");
   }
   function showStory(){
     openWork(cur);   /* 回场景视图：从头放 */
@@ -786,13 +793,13 @@
     el.className = "line";
     poemEl.appendChild(el);
     typeInto(el, cur.poem[k], POEM_SPEED, function(){
-      setTimeout(function(){ poemLine(k + 1); }, 660);
+      setTimeout(function(){ if(mode === "poem") poemLine(k + 1); }, 660);
     });
   }
   function advance(){
-    if(mode === "scroll" || mode === "done" || mode === "poemfull") return;
+    if(mode === "scroll" || mode === "done") return;
     if(timer){ finishTyping(); showHint(true); return; }
-    if(mode === "poem") return;
+    if(mode === "poem" || mode === "poemfull") return;
     pi++; showPara(pi);
   }
   function backToGallery(){
