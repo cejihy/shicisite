@@ -114,7 +114,8 @@
   .slip .l{font-size:12px;letter-spacing:.18em;color:#6b5c44}
   .slip .d{font-size:10px;letter-spacing:.12em;color:#8f7f63}
   .slip:hover .sheet2{border-color:rgba(60,44,24,.75);background:rgba(253,247,232,1)}
-  .slip.blank{cursor:default;opacity:.45}
+  .slip.noprose .d::after{content:"　只录诗";font-size:9px;letter-spacing:.08em;color:#b08a5a}
+.slip.blank{cursor:default;opacity:.45}
   .slip.blank .sheet2{border-style:dashed;background:rgba(246,238,220,.5);box-shadow:none}
   .slip.blank .t{font-size:13px;color:#8f7f63;letter-spacing:.3em}
   #gal-back{
@@ -646,6 +647,7 @@
         '<div class="t">' + (w.t || "无题") + '</div>' +
         '<div class="l">' + line + '</div>' +
         '<div class="d">' + cnNum(w.year || "") + '</div></div>';
+      if(!w.paras || !w.paras.length) d.classList.add("noprose");
       d.addEventListener("click", function(e){ e.stopPropagation(); openWork(w); });
       slipsEl.appendChild(d);
     });
@@ -671,10 +673,24 @@
     requestAnimationFrame(function(){ headEl.classList.add("on"); });
     showHint(false);
     mode = "story";
-    setTimeout(function(){ showPara(0); }, 420);
+    if(!cur.paras || !cur.paras.length){
+      setTimeout(showNoCopy, 420);
+    } else {
+      setTimeout(function(){ showPara(0); }, 420);
+    }
+  }
+  function showNoCopy(){
+    mode = "note";
+    textEl.innerHTML = "";
+    var el = document.createElement("p");
+    el.className = "para";
+    el.textContent = "此首只录诗，无夜访文案。";
+    textEl.appendChild(el);
+    requestAnimationFrame(function(){ el.classList.add("on"); });
+    showHint(true);
   }
   function showPara(idx){
-    if(idx >= cur.paras.length){ startPoem(); return; }
+    if(!cur.paras || idx >= cur.paras.length){ startPoem(); return; }
     textEl.innerHTML = "";
     var el = document.createElement("p");
     el.className = "para" + (cur.paras[idx].length <= 9 ? " short" : "");
