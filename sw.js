@@ -1,4 +1,4 @@
-const CACHE = "yefang-v3";
+const CACHE = "yefang-v4";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
