@@ -158,6 +158,8 @@
   #hint2{position:fixed;bottom:20px;left:0;right:0;text-align:center;font-size:11px;color:#8a7a5e;letter-spacing:.3em;opacity:0;transition:opacity .6s ease;z-index:22}
   #hint2.on{opacity:.8}
   #back{position:fixed;top:18px;left:22px;font-size:12px;color:#7d715c;letter-spacing:.2em;z-index:24;opacity:.6}
+  #pmtab{position:fixed;top:18px;right:22px;font-size:12px;color:#7d715c;letter-spacing:.2em;z-index:24;opacity:.6;cursor:pointer;transition:opacity .3s ease}
+  #pmtab:hover{opacity:1}
   #back:hover{opacity:1}
 </style>
 </head>
@@ -180,7 +182,7 @@
 </div>
 
 <div id="reader">
-  <div id="back">← 收卷（Esc）</div>  <div id="sheet">
+  <div id="back">← 收卷（Esc）</div>  <div id="pmtab">读原文</div><div id="sheet">
     <div id="inner">
       <div id="r-head"></div>
       <div id="text"></div>
@@ -645,6 +647,8 @@
   var sealEl = document.getElementById("seal2");
   var noteEl = tailEl.querySelector(".note");
   var hintEl2 = document.getElementById("hint2");
+  var pmTab = document.getElementById("pmtab");
+  var poemFull = false;   /* true = 原文视图：不打字，全文直接铺出 */
 
   function showHint(on){ hintEl2.classList.toggle("on", !!on); }
   function typeInto(el, str, sp, cb){
@@ -708,7 +712,8 @@
   }
 
   function openWork(w){
-    cur = w; pi = 0;
+    cur = w; pi = 0; poemFull = false;
+    pmTab.textContent = "读原文";
     readerEl.classList.add("on");
     headEl.textContent = (curPerson ? curPerson.n + "　" : "") + cur.year + (cur.head ? "　·　" + cur.head : "");
     textEl.innerHTML = ""; poemEl.innerHTML = ""; poemEl.classList.remove("on");
@@ -733,6 +738,29 @@
     requestAnimationFrame(function(){ el.classList.add("on"); });
     showHint(true);
   }
+  /* 原文视图：不打字，全诗与注一次铺出 */
+  function showPoemFull(){
+    finishTyping();
+    poemFull = true; mode = "poemfull";
+    textEl.innerHTML = ""; poemEl.innerHTML = "";
+    poemEl.classList.add("on"); showHint(false);
+    pmTab.textContent = "读场景";
+    cur.poem.forEach(function(line){
+      var el = document.createElement("p");
+      el.className = "line";
+      el.textContent = line;
+      poemEl.appendChild(el);
+    });
+    noteEl.innerHTML = (curPerson ? curPerson.n : "") + "　" + cur.note;
+    tailEl.classList.add("on");
+  }
+  function showStory(){
+    openWork(cur);   /* 回场景视图：从头放 */
+  }
+  pmTab.addEventListener("click", function(e){
+    e.stopPropagation();
+    if(poemFull) showStory(); else showPoemFull();
+  });
   function showPara(idx){
     if(!cur.paras || idx >= cur.paras.length){ startPoem(); return; }
     textEl.innerHTML = "";
@@ -762,7 +790,7 @@
     });
   }
   function advance(){
-    if(mode === "scroll" || mode === "done") return;
+    if(mode === "scroll" || mode === "done" || mode === "poemfull") return;
     if(timer){ finishTyping(); showHint(true); return; }
     if(mode === "poem") return;
     pi++; showPara(pi);
@@ -786,7 +814,7 @@
   document.getElementById("gal-back").addEventListener("click", function(e){ e.stopPropagation(); backScroll(); });
   document.addEventListener("keydown", function(e){
     if(e.key === "Escape"){
-      if(mode === "story" || mode === "poem" || mode === "done") backToGallery();
+      if(mode === "story" || mode === "poem" || mode === "done" || mode === "poemfull" || mode === "note") backToGallery();
       else if(mode === "gallery") backScroll();
       return;
     }
