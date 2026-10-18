@@ -215,6 +215,21 @@
     return "清";
   }
 
+  /* 时代分段：画底色带、界线、界牌用 */
+  var ERAS = [
+    {n:"先秦",       from:-400, to:-206},
+    {n:"汉",         from:-206, to:220},
+    {n:"魏晋南北朝", from:220,  to:581},
+    {n:"隋",         from:581,  to:618},
+    {n:"唐",         from:618,  to:907},
+    {n:"五代",       from:907,  to:960},
+    {n:"北宋",       from:960,  to:1127},
+    {n:"南宋",       from:1127, to:1279},
+    {n:"元",         from:1279, to:1368},
+    {n:"明",         from:1368, to:1644},
+    {n:"清",         from:1644, to:1935}
+  ];
+
 
 
 
@@ -270,6 +285,16 @@
 
     var svg = svgEl("svg", {width: W, height: H, viewBox: "0 0 " + W + " " + H});
     var cx = Math.round(W / 2);
+
+    /* 时代底色带与界线：一段深一段浅，界处一道虚线 */
+    ERAS.forEach(function(e, i){
+      var ya = PAD_T + (e.from - Y0) * PPY;
+      var ye = PAD_T + (e.to - Y0) * PPY;
+      if(i % 2 === 1)
+        svg.appendChild(svgEl("rect", {x:0, y:ya, width:W, height:ye - ya, fill:"rgba(146,116,74,.05)"}));
+      svg.appendChild(svgEl("line", {x1:0, y1:ya, x2:W, y2:ya,
+        stroke:"rgba(122,98,64,.30)", "stroke-width":1, "stroke-dasharray":"7 6"}));
+    });
 
     /* 脊：一笔到底，略抖，像手画的 */
     var pts = [], wig = [];
@@ -438,6 +463,25 @@
 
     /* 牌子最后铺上去，压在肋之上 */
     svg.appendChild(tagLayer);
+
+    /* 时代界牌：每个时代开头，脊上挂一块竖排小牌 */
+    ERAS.forEach(function(e){
+      var y = PAD_T + (e.from - Y0) * PPY;
+      var chs = e.n.split("");
+      var hh = chs.length * 15 + 16;
+      var g = svgEl("g", {});
+      g.appendChild(svgEl("rect", {x:cx - 12, y:y - hh / 2, width:24, height:hh, rx:3,
+        fill:"rgba(243,236,220,.96)", stroke:"rgba(72,60,42,.55)", "stroke-width":1}));
+      g.appendChild(svgEl("rect", {x:cx - 9, y:y - hh / 2 + 3, width:18, height:hh - 6, rx:2,
+        fill:"none", stroke:"rgba(90,80,60,.30)", "stroke-width":.6}));
+      chs.forEach(function(ch, i){
+        var t = svgEl("text", {x:cx, y:y - hh / 2 + 20 + i * 15, "text-anchor":"middle",
+          fill:"rgba(84,68,48,.92)", "font-size":13, "font-family":"KaiTi,STKaiti,serif"});
+        t.textContent = ch;
+        g.appendChild(t);
+      });
+      svg.appendChild(g);
+    });
 
     var old = world.querySelector("svg");
     if(old) world.removeChild(old);
