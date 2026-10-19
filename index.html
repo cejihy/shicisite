@@ -81,12 +81,13 @@
     font-size:15px;letter-spacing:.42em;color:#6b5c44;
   }
   #gal-rod{
-    position:absolute;top:88px;left:6%;right:6%;height:7px;border-radius:4px;
+    position:absolute;top:104px;left:6%;right:6%;height:7px;border-radius:4px;
     background:linear-gradient(180deg,#7a6448,#43352a 60%,#2c221a);
     box-shadow:0 2px 5px rgba(60,42,22,.35);
   }
+  #gal-bio{position:absolute;top:58px;left:8%;right:8%;text-align:center;font-size:11.5px;letter-spacing:.04em;color:#8a7a5e;line-height:1.6;max-height:3.6em;overflow:hidden}
   #slips{
-    position:absolute;top:88px;left:0;right:0;bottom:0;
+    position:absolute;top:104px;left:0;right:0;bottom:0;
     overflow-x:auto;overflow-y:hidden;
     scrollbar-width:thin;
   }
@@ -129,6 +130,7 @@
     font-size:11px;letter-spacing:.16em;color:#8a7a5e;
     background:linear-gradient(180deg, rgba(236,224,196,.92), rgba(236,224,196,0));
   }
+  #era{margin-left:12px;color:#b08a5a;letter-spacing:.22em}
   #hint{position:fixed;bottom:70px;left:0;right:0;text-align:center;font-size:11px;
     letter-spacing:.34em;color:#8a7a5e;transition:opacity 1s ease;z-index:6}
 
@@ -143,6 +145,10 @@
   #inner{width:min(640px,100%)}
   #r-head{font-size:12px;letter-spacing:.3em;color:#8a7a5e;margin-bottom:28px;text-align:center;opacity:0;transition:opacity .8s ease}
   #r-head.on{opacity:1}
+  #r-bg{display:none;font-size:12.5px;letter-spacing:.12em;color:#8a7a5e;text-align:center;line-height:1.9;margin:-16px 0 30px;opacity:.9}
+  #r-bg.on{display:block;animation:rbgIn .8s ease}
+  @keyframes rbgIn{from{opacity:0;transform:translateY(2px)}to{opacity:.9;transform:none}}
+  #r-bg::before{content:"背景 · ";color:#b08a5a;letter-spacing:.18em}
   #text{font-size:21px;line-height:2.15;letter-spacing:.05em}
   p.para{margin:0;opacity:0;transition:opacity .5s ease}
   p.para.on{opacity:1}
@@ -167,7 +173,7 @@
 
 <div id="vignette"></div>
 <header id="tian">夜 访 · 人 物 年 次</header>
-<div id="top">看见　<b id="range">970–1195</b></div>
+<div id="top">看见　<b id="range">970–1195</b><span id="era"></span></div>
 
 <div id="viewport"><div id="world"></div></div>
 
@@ -177,6 +183,7 @@
 <div id="gallery">
   <div id="gal-back">← 回卷（Esc）</div>
   <div id="gal-name"></div>
+  <div id="gal-bio"></div>
   <div id="gal-rod"></div>
   <div id="slips"><div id="slips-inner"></div></div>
 </div>
@@ -185,6 +192,7 @@
   <div id="back">← 收卷（Esc）</div>  <div id="pmtab">读原文</div><div id="sheet">
     <div id="inner">
       <div id="r-head"></div>
+      <div id="r-bg"></div>
       <div id="text"></div>
       <div id="poem"></div>
       <div id="tail"><div id="seal2">·</div><div class="note"></div></div>
@@ -204,6 +212,8 @@
 
 
   function eraOf(b){
+    if(b >= 1115 && b < 1127) return "北宋 · 金";
+    if(b >= 1127 && b < 1234) return "南宋 · 金";
     if(b < -206) return "先秦";
     if(b < 220) return "汉";
     if(b < 581) return "魏晋南北朝";
@@ -216,6 +226,7 @@
     if(b < 1644) return "明";
     return "清";
   }
+  function shortEra(e){ return e === "魏晋南北朝" ? "魏晋" : e; }
 
   /* 时代分段：画底色带、界线、界牌用 */
   var ERAS = [
@@ -237,13 +248,25 @@
 
 
   function worksOf(p){
-    var first = {t: TITLE[p.n] || "", year:p.year, head:p.head, paras:p.paras, poem:p.poem, note:p.note};
-    return [first].concat(MORE[p.n] || []);
+    var BGMAP = (typeof BG !== "undefined") ? BG : {};
+    var BIOMAP = (typeof BIO !== "undefined") ? BIO : {};
+    var ERAMAP = (typeof ERA !== "undefined") ? ERA : {};
+    var first = {t: TITLE[p.n] || "", year:p.year, head:p.head, paras:p.paras, poem:p.poem, note:p.note, bg:BGMAP[p.n] || "", bio:BIOMAP[p.n] || "", era:ERAMAP[p.n] || ""};
+    var more = (MORE[p.n] || []).map(function(w){
+      var c = {};
+      for(var k in w) c[k] = w[k];
+      c.bg = BGMAP[p.n + "·" + w.t] || "";
+      c.bio = BIOMAP[p.n] || "";
+      c.era = ERAMAP[p.n] || "";
+      return c;
+    });
+    return [first].concat(more);
   }
 
   var viewport = document.getElementById("viewport");
   var world = document.getElementById("world");
   var rangeEl = document.getElementById("range");
+  var eraEl = document.getElementById("era");
   var hintEl = document.getElementById("hint");
 
   var PPY = 4;
@@ -369,7 +392,8 @@
         fill: has ? "rgba(38,32,26,.9)" : "rgba(74,64,50,.5)"}));
 
       var label = p.n + (p.approx ? "?" : "") + (HAO[p.n] ? "　" + HAO[p.n] : "");
-      var sub = p.b + "–" + p.d + "　" + (p.d - p.b) + "岁";
+      var er0 = (typeof ERA !== "undefined" && ERA[p.n]) ? shortEra(ERA[p.n]) : "";
+      var sub = (er0 ? er0 + "　" : "") + p.b + "–" + p.d + "　" + (p.d - p.b) + "岁";
 
       if(PPY >= 2.4){
         /* 竖牌：像桃符，名竖排，号在旁，底下刻享年 */
@@ -424,12 +448,13 @@
           hy += 10;
         });
 
-        /* 底下刻一个数 */
+        /* 底下刻一个数：活动时代 + 享年 */
         var age = svgEl("text", {x: tipx, y: by + th - 9, "text-anchor":"middle",
                                  fill: has ? "rgba(40,56,42,.6)" : "rgba(90,68,38,.6)",
-                                 "font-size": 8, "font-family":"KaiTi,STKaiti,serif",
-                                 "letter-spacing":".5"});
-        age.textContent = (p.d - p.b) + "岁";
+                                 "font-size": 7, "font-family":"KaiTi,STKaiti,serif",
+                                 "letter-spacing":"0"});
+        var er = (typeof ERA !== "undefined" && ERA[p.n]) ? shortEra(ERA[p.n]) : "";
+        age.textContent = er + (p.d - p.b) + "岁";
         tag.appendChild(age);
 
         tagLayer.appendChild(tag);
@@ -491,7 +516,7 @@
   }
 
   /* 视口与可滚距离缓存起来，别在每次手指移动时量高度（那会强制重排） */
-  var viewH = 0, maxS = 0, lastRange = "";
+  var viewH = 0, maxS = 0, lastRange = "", lastEra = "";
   function measure(){
     viewH = viewport.clientHeight;
     maxS = Math.max(0, H - viewH);
@@ -502,6 +527,9 @@
     var b = Math.round(Y0 + (scroll + viewH - PAD_T) / PPY);
     var s = fmtY(Math.min(a, Y1)) + "–" + fmtY(Math.min(b, Y1));
     if(s !== lastRange){ rangeEl.textContent = s; lastRange = s; }
+    var mid = Math.round((a + b) / 2);
+    var e = eraOf(mid);
+    if(e !== lastEra){ eraEl.textContent = "· " + e; lastEra = e; }
   }
   function clamp(){
     if(scroll < 0) scroll = 0;
@@ -641,6 +669,7 @@
   var mode = "scroll", timer = null, typingEl = null, typingStr = "", typingCb = null, cur = null, pi = 0;
   var readerEl = document.getElementById("reader");
   var headEl = document.getElementById("r-head");
+  var bgEl = document.getElementById("r-bg");
   var textEl = document.getElementById("text");
   var poemEl = document.getElementById("poem");
   var tailEl = document.getElementById("tail");
@@ -675,6 +704,7 @@
   }
   var galleryEl = document.getElementById("gallery");
   var galName = document.getElementById("gal-name");
+  var galBio = document.getElementById("gal-bio");
   var slipsEl = document.getElementById("slips-inner");
   var curPerson = null;
 
@@ -683,6 +713,7 @@
   function openGallery(p){
     curPerson = p;
     galName.textContent = p.n + (HAO[p.n] ? "　" + HAO[p.n] : "") + "　" + p.b + "–" + p.d;
+    galBio.textContent = ((typeof ERA !== "undefined" && ERA[p.n]) ? ERA[p.n] + " · " : "") + ((typeof BIO !== "undefined" && BIO[p.n]) ? BIO[p.n] : "");
     slipsEl.innerHTML = "";
     worksOf(p).forEach(function(w, k){
       var d = document.createElement("div");
@@ -716,7 +747,9 @@
     cur = w; pi = 0; poemFull = false;
     pmTab.textContent = "读原文";
     readerEl.classList.add("on");
-    headEl.textContent = (curPerson ? curPerson.n + "　" : "") + cur.year + (cur.head ? "　·　" + cur.head : "");
+    headEl.textContent = (curPerson ? curPerson.n + "　" : "") + (cur.era ? cur.era + "　" : "") + cur.year + (cur.head ? "　·　" + cur.head : "");
+    bgEl.textContent = cur.bg || cur.bio || "";
+    bgEl.classList.toggle("on", !!(cur.bg || cur.bio));
     textEl.innerHTML = ""; poemEl.innerHTML = ""; poemEl.classList.remove("on");
     tailEl.classList.remove("on"); noteEl.textContent = "";
     sealEl.textContent = (curPerson && curPerson.seal) || "·";
@@ -739,27 +772,25 @@
     requestAnimationFrame(function(){ el.classList.add("on"); });
     showHint(true);
   }
-  /* 原文视图：不打字机逐字，但逐行打印式出现 */
+  /* 原文视图：整首诗一次铺出，不打字 */
   function showPoemFull(){
     finishTyping();
     poemFull = true; mode = "poemfull";
     textEl.innerHTML = ""; poemEl.innerHTML = "";
     poemEl.classList.add("on"); showHint(false);
     pmTab.textContent = "读场景";
-    setTimeout(function(){ poemFullLine(0); }, 420);
+    fillPoem();
   }
-  function poemFullLine(k){
-    if(k >= cur.poem.length){
-      noteEl.innerHTML = (curPerson ? curPerson.n : "") + "　" + cur.note;
-      tailEl.classList.add("on");
-      mode = "done"; showHint(false); return;
-    }
-    var el = document.createElement("p");
-    el.className = "line";
-    poemEl.appendChild(el);
-    typeInto(el, cur.poem[k], POEM_SPEED, function(){
-      setTimeout(function(){ if(mode === "poemfull") poemFullLine(k + 1); }, 660);
+  function fillPoem(){
+    poemEl.innerHTML = "";
+    cur.poem.forEach(function(line){
+      var el = document.createElement("p");
+      el.className = "line";
+      el.textContent = line;
+      poemEl.appendChild(el);
     });
+    tailEl.classList.add("on");
+    noteEl.innerHTML = (curPerson ? curPerson.n : "") + "　" + cur.note;
   }
   function showStory(){
     openWork(cur);   /* 回场景视图：从头放 */
@@ -806,6 +837,7 @@
     finishTyping();
     readerEl.classList.remove("on");
     headEl.classList.remove("on");
+    bgEl.classList.remove("on");
     mode = "gallery";
     showHint(false);
   }
@@ -814,6 +846,7 @@
     readerEl.classList.remove("on");
     galleryEl.classList.remove("on");
     headEl.classList.remove("on");
+    bgEl.classList.remove("on");
     showHint(false);
   }
   readerEl.addEventListener("click", function(e){ if(e.target.id === "back") return; advance(); });
