@@ -131,6 +131,23 @@
     background:linear-gradient(180deg, rgba(236,224,196,.92), rgba(236,224,196,0));
   }
   #era{margin-left:12px;color:#b08a5a;letter-spacing:.22em}
+  #search-btn{position:fixed;top:18px;right:22px;font-size:12px;color:#7d715c;letter-spacing:.2em;z-index:26;opacity:.6;cursor:pointer;transition:opacity .3s ease}
+  #search-btn:hover{opacity:1}
+  #search{position:fixed;inset:0;display:none;z-index:60;background:rgba(30,24,16,.38);padding:8vh 18px}
+  #search.on{display:flex;align-items:flex-start;justify-content:center}
+  #search-panel{width:min(620px,100%);max-height:78vh;display:flex;flex-direction:column;background:#f3ecdc;border:1px solid rgba(90,68,40,.45);box-shadow:0 18px 50px rgba(30,20,10,.3)}
+  #search-input{font:inherit;font-size:20px;letter-spacing:.08em;color:#2e2822;background:transparent;border:0;border-bottom:1px solid rgba(90,68,40,.35);outline:none;padding:18px 20px}
+  #search-input::placeholder{color:#a08c6c}
+  #search-results{flex:1;min-height:0;overflow-y:auto;scrollbar-width:thin}
+  .s-item{display:flex;gap:12px;padding:12px 20px;border-bottom:1px solid rgba(120,96,62,.14);cursor:pointer;align-items:flex-start}
+  .s-item:hover,.s-item.active{background:rgba(176,138,90,.14)}
+  .s-badge{flex:none;font-size:10px;letter-spacing:.12em;color:#f6efe0;background:#a5382f;padding:2px 5px;border-radius:2px;margin-top:2px}
+  .s-main{min-width:0}
+  .s-title{font-size:16px;letter-spacing:.08em;color:#2e2822;line-height:1.6}
+  .s-sub{font-size:12px;letter-spacing:.04em;color:#7d715c;line-height:1.8;margin-top:2px;word-break:break-all}
+  .s-empty{padding:26px 20px;font-size:13px;letter-spacing:.08em;color:#8a7a5e;text-align:center}
+  #search-tip{font-size:10px;letter-spacing:.1em;color:#8a7a5e;text-align:center;padding:8px 0 10px;border-top:1px solid rgba(120,96,62,.14)}
+  mark{background:rgba(176,138,90,.35);color:inherit}
   #hint{position:fixed;bottom:70px;left:0;right:0;text-align:center;font-size:11px;
     letter-spacing:.34em;color:#8a7a5e;transition:opacity 1s ease;z-index:6}
 
@@ -150,8 +167,8 @@
   @keyframes rbgIn{from{opacity:0;transform:translateY(2px)}to{opacity:.9;transform:none}}
   #r-bg::before{content:"背景 · ";color:#b08a5a;letter-spacing:.18em}
   #text{font-size:21px;line-height:2.15;letter-spacing:.05em}
-  p.para{margin:0;opacity:0;transition:opacity .5s ease}
-  p.para.on{opacity:1}
+  p.para{margin:0;opacity:0;transform:translateY(5px);filter:blur(1.2px);transition:opacity 1.5s ease,transform 1.5s ease,filter 1.5s ease}
+  p.para.on{opacity:1;transform:none;filter:none}
   p.short{font-size:25px;letter-spacing:.14em}
   p.line{font-size:24px;line-height:2.5;letter-spacing:.08em;margin:0 0 .3em;text-align:center}
   #poem{opacity:0;transition:opacity 1s ease;margin-top:.7em}
@@ -164,7 +181,7 @@
   #hint2{position:fixed;bottom:20px;left:0;right:0;text-align:center;font-size:11px;color:#8a7a5e;letter-spacing:.3em;opacity:0;transition:opacity .6s ease;z-index:22}
   #hint2.on{opacity:.8}
   #back{position:fixed;top:18px;left:22px;font-size:12px;color:#7d715c;letter-spacing:.2em;z-index:24;opacity:.6}
-  #pmtab{position:fixed;top:18px;right:22px;font-size:12px;color:#7d715c;letter-spacing:.2em;z-index:24;opacity:.6;cursor:pointer;transition:opacity .3s ease}
+  #pmtab{position:fixed;top:18px;right:82px;font-size:12px;color:#7d715c;letter-spacing:.2em;z-index:24;opacity:.6;cursor:pointer;transition:opacity .3s ease}
   #pmtab:hover{opacity:1}
   #back:hover{opacity:1}
 </style>
@@ -200,6 +217,15 @@
   </div>
 </div>
 <div id="hint2">空格 / 点击　继续</div>
+
+<div id="search-btn">搜</div>
+<div id="search">
+  <div id="search-panel">
+    <input id="search-input" type="search" placeholder="搜诗人、诗题、诗句、文案" autocomplete="off">
+    <div id="search-results"></div>
+    <div id="search-tip">回车打开第一项 · Esc 关闭</div>
+  </div>
+</div>
 
 <script src="data.js"></script>
 <script>
@@ -665,7 +691,7 @@
   setTimeout(function(){ hintEl.style.opacity = 0; }, 9000);
 
   /* 阅读 */
-  var SPEED = 52, POEM_SPEED = 150;
+  var POEM_SPEED = 150;
   var mode = "scroll", timer = null, typingEl = null, typingStr = "", typingCb = null, cur = null, pi = 0;
   var readerEl = document.getElementById("reader");
   var headEl = document.getElementById("r-head");
@@ -804,10 +830,11 @@
     textEl.innerHTML = "";
     var el = document.createElement("p");
     el.className = "para" + (cur.paras[idx].length <= 9 ? " short" : "");
+    el.textContent = cur.paras[idx];
     textEl.appendChild(el);
     requestAnimationFrame(function(){ el.classList.add("on"); });
     showHint(false);
-    typeInto(el, cur.paras[idx], SPEED, function(){ if(mode === "story") showHint(true); });
+    setTimeout(function(){ if(mode === "story") showHint(true); }, 1100);
   }
   function startPoem(){
     mode = "poem"; finishTyping(); textEl.innerHTML = "";
@@ -853,12 +880,186 @@
   document.getElementById("back").addEventListener("click", function(e){ e.stopPropagation(); backToGallery(); });
   document.getElementById("gal-back").addEventListener("click", function(e){ e.stopPropagation(); backScroll(); });
   document.addEventListener("keydown", function(e){
+    if(searchEl && searchEl.classList.contains("on")){
+      if(e.key === "Escape"){ closeSearch(); e.preventDefault(); }
+      return;
+    }
+    if(e.key === "/" || ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K"))){
+      var tag = (e.target && e.target.tagName || "").toLowerCase();
+      if(tag !== "input" && tag !== "textarea"){ e.preventDefault(); openSearch(); return; }
+    }
     if(e.key === "Escape"){
       if(mode === "story" || mode === "poem" || mode === "done" || mode === "poemfull" || mode === "note") backToGallery();
       else if(mode === "gallery") backScroll();
       return;
     }
     if(e.key === " " || e.key === "Enter" || e.key === "ArrowRight"){ e.preventDefault(); advance(); }
+  });
+
+  /* 搜索 */
+  var searchEl = document.getElementById("search");
+  var searchInput = document.getElementById("search-input");
+  var searchResults = document.getElementById("search-results");
+  var searchBtn = document.getElementById("search-btn");
+  var searchIndex = null, searchItems = [], searchActive = -1;
+
+  function buildSearchIndex(){
+    if(searchIndex) return searchIndex;
+    var idx = [];
+    FOLK.forEach(function(p){
+      var bio = (typeof BIO !== "undefined" && BIO[p.n]) ? BIO[p.n] : "";
+      var era = (typeof ERA !== "undefined" && ERA[p.n]) ? ERA[p.n] : "";
+      var hao = HAO[p.n] || "";
+      idx.push({type:"poet", p:p, name:p.n, hao:hao, era:era, bio:bio, dates:p.b + "–" + p.d,
+                text:[p.n, hao, era, bio, p.b + "–" + p.d].join(" ")});
+      worksOf(p).forEach(function(w){
+        var title = w.t || TITLE[p.n] || "";
+        var poem = (w.poem || []).join("");
+        var paras = (w.paras || []).join("");
+        idx.push({type:"work", p:p, w:w, title:title, poet:p.n, era:w.era || era,
+                  year:w.year || "", head:w.head || "", poem:poem, paras:paras,
+                  text:[p.n, title, w.year || "", w.head || "", poem, paras, w.bio || bio].join(" ")});
+      });
+    });
+    searchIndex = idx;
+    return idx;
+  }
+  function escHtml(s){ return (s || "").replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
+  function escReg(s){ return (s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+  function normQ(s){ return (s || "").replace(/\s+/g, "").toLowerCase(); }
+  function markQ(s, q){
+    var toks = (q || "").trim().split(/\s+/).filter(Boolean);
+    var out = escHtml(s);
+    if(!toks.length) return out;
+    var re = new RegExp("(" + toks.map(escReg).join("|") + ")", "gi");
+    return out.replace(re, "<mark>$1</mark>");
+  }
+  function snippet(text, q, n){
+    text = text || "";
+    var toks = (q || "").trim().split(/\s+/).filter(Boolean);
+    var idx = -1;
+    for(var i=0;i<toks.length;i++){ var k = text.indexOf(toks[i]); if(k >= 0){ idx = k; break; } }
+    if(idx < 0) idx = 0;
+    var a = Math.max(0, idx - 10), b = Math.min(text.length, idx + (n || 36));
+    return (a > 0 ? "…" : "") + text.slice(a, b) + (b < text.length ? "…" : "");
+  }
+  function searchRun(q){
+    q = (q || "").trim();
+    if(!q){
+      searchItems = []; searchActive = -1;
+      searchResults.innerHTML = '<div class="s-empty">搜诗人、诗题、诗句、文案</div>';
+      return;
+    }
+    var nq = normQ(q);
+    var toks = q.split(/\s+/).map(normQ).filter(Boolean);
+    var found = [];
+    buildSearchIndex().forEach(function(it){
+      var hay = normQ(it.text);
+      for(var i=0;i<toks.length;i++) if(hay.indexOf(toks[i]) < 0) return;
+      var score = 0;
+      if(it.type === "poet"){
+        if(normQ(it.name) === nq) score = 120;
+        else if(normQ(it.name).indexOf(nq) === 0) score = 100;
+        else if(normQ(it.name).indexOf(nq) >= 0) score = 90;
+        else if(normQ(it.hao).indexOf(nq) >= 0) score = 80;
+        else if(normQ(it.era).indexOf(nq) >= 0) score = 70;
+        else if(normQ(it.bio).indexOf(nq) >= 0) score = 60;
+        else score = 50;
+      } else {
+        if(normQ(it.title) === nq) score = 110;
+        else if(normQ(it.title).indexOf(nq) >= 0) score = 95;
+        else if(normQ(it.poem).indexOf(nq) >= 0) score = 75;
+        else if(normQ(it.paras).indexOf(nq) >= 0) score = 65;
+        else score = 40;
+      }
+      found.push({it:it, score:score});
+    });
+    found.sort(function(a,b){
+      if(b.score !== a.score) return b.score - a.score;
+      if(a.it.type !== b.it.type) return a.it.type === "poet" ? -1 : 1;
+      return 0;
+    });
+    searchItems = found.slice(0, 24).map(function(x){ return x.it; });
+    searchActive = -1;
+    renderResults(q);
+  }
+  function renderResults(q){
+    if(!searchItems.length){
+      searchResults.innerHTML = '<div class="s-empty">没有找到。换个字试试。</div>';
+      return;
+    }
+    var html = "";
+    searchItems.forEach(function(it, i){
+      var badge = it.type === "poet" ? "诗人" : "诗";
+      var title = it.type === "poet" ? it.name : (it.poet + " · " + it.title);
+      var sub = "";
+      if(it.type === "poet"){
+        sub = [it.hao, it.era, it.dates].filter(Boolean).join(" · ");
+        if(it.bio) sub += (sub ? " · " : "") + snippet(it.bio, q, 30);
+      } else {
+        sub = [it.year, it.head].filter(Boolean).join(" · ");
+        if(it.title.indexOf(q) >= 0){
+          sub += (sub ? " · " : "") + snippet(it.paras, q, 34);
+        } else if(it.poem.indexOf(q) >= 0){
+          var lines = (it.w.poem || []);
+          for(var j=0;j<lines.length;j++) if(lines[j].indexOf(q) >= 0){ sub += (sub ? " · " : "") + "「" + lines[j] + "」"; break; }
+        } else if(it.paras.indexOf(q) >= 0){
+          sub += (sub ? " · " : "") + snippet(it.paras, q, 34);
+        }
+        if(!sub) sub = snippet(it.paras, q, 34);
+      }
+      html += '<div class="s-item" data-i="' + i + '">' +
+        '<span class="s-badge">' + badge + '</span>' +
+        '<div class="s-main"><div class="s-title">' + markQ(title, q) + '</div>' +
+        '<div class="s-sub">' + markQ(sub, q) + '</div></div></div>';
+    });
+    searchResults.innerHTML = html;
+  }
+  function openSearchResult(it){
+    if(!it) return;
+    closeSearch();
+    if(readerEl.classList.contains("on")) backToGallery();
+    openGallery(it.p);
+    if(it.type === "work"){
+      curPerson = it.p;
+      openWork(it.w);
+    }
+  }
+  function openSearch(){
+    searchEl.classList.add("on");
+    searchInput.value = "";
+    searchItems = []; searchActive = -1;
+    searchResults.innerHTML = '<div class="s-empty">搜诗人、诗题、诗句、文案</div>';
+    setTimeout(function(){ try{ searchInput.focus(); }catch(e){} }, 40);
+  }
+  function closeSearch(){
+    searchEl.classList.remove("on");
+    try{ searchInput.blur(); }catch(e){}
+  }
+  function moveSearch(d){
+    if(!searchItems.length) return;
+    searchActive = (searchActive + d + searchItems.length) % searchItems.length;
+    var nodes = searchResults.querySelectorAll(".s-item");
+    for(var i=0;i<nodes.length;i++) nodes[i].classList.toggle("active", i === searchActive);
+    if(nodes[searchActive]) nodes[searchActive].scrollIntoView({block:"nearest"});
+  }
+  searchBtn.addEventListener("click", function(e){ e.stopPropagation(); openSearch(); });
+  searchEl.addEventListener("click", function(e){ if(e.target === searchEl) closeSearch(); });
+  searchInput.addEventListener("input", function(){ searchRun(searchInput.value); });
+  searchInput.addEventListener("keydown", function(e){
+    if(e.key === "ArrowDown"){ e.preventDefault(); moveSearch(1); }
+    else if(e.key === "ArrowUp"){ e.preventDefault(); moveSearch(-1); }
+    else if(e.key === "Enter"){
+      e.preventDefault();
+      openSearchResult(searchItems[searchActive >= 0 ? searchActive : 0]);
+    }
+  });
+  searchResults.addEventListener("click", function(e){
+    var el = e.target;
+    while(el && el !== searchResults && !el.classList.contains("s-item")) el = el.parentNode;
+    if(!el || el === searchResults) return;
+    var i = parseInt(el.getAttribute("data-i"), 10);
+    openSearchResult(searchItems[i]);
   });
 
   /* 离线缓存：线上（https）才装 */
